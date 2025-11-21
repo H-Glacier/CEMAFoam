@@ -1037,7 +1037,7 @@ Foam::EigenMatrix<cmptType>::EigenMatrix
 template<class cmptType>
 Foam::EigenMatrix<cmptType>::EigenMatrix(const SquareMatrix<cmptType>& A)
 :
-    EigenMatrix<cmptType>(A, A.symmetric())
+    EigenMatrix<cmptType>(A, false)
 {}
 
 
@@ -1048,14 +1048,6 @@ const Foam::SquareMatrix<Foam::complex>
 Foam::EigenMatrix<cmptType>::complexEVecs() const
 {
     SquareMatrix<complex> EVecs(EVecs_.n(), Zero);
-
-    for (label i = 0; i < EVecs_.n(); ++i)
-    {
-        for (label j = 0; j < EVecs_.n(); ++j)
-        {
-            EVecs[i][j] = complex(EVecs_[i][j], 0.0);
-        }
-    }
 
     for (label i = 0; i < EValsIm_.size(); ++i)
     {

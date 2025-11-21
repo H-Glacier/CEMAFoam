@@ -108,7 +108,12 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
                     IOobject::NO_WRITE
                 ),
                 this->mesh(),
-                dimensionedScalar(dimMass/dimVolume/dimTime, Zero)
+                dimensionedScalar
+                (
+                    "zeroRR",
+                    dimMass/dimVolume/dimTime,
+                    scalar(0)
+                )
             )
         );
     }
@@ -565,7 +570,12 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculateRR
                 IOobject::NO_WRITE
             ),
             this->mesh(),
-            dimensionedScalar(dimMass/dimVolume/dimTime, Zero)
+            dimensionedScalar
+            (
+                "zeroRRcalc",
+                dimMass/dimVolume/dimTime,
+                scalar(0)
+            )
         )
     );
 
