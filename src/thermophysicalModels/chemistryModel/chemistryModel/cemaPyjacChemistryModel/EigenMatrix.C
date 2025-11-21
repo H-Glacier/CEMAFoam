@@ -873,8 +873,8 @@ void Foam::EigenMatrix<cmptType>::realSchur()
                 complex cDiv = complex(0.0, -H_[n - 1][n])
                         /complex(H_[n - 1][n-1]-p, q);
 
-                H_[n - 1][n - 1] = cDiv.real();
-                H_[n - 1][n] = cDiv.imag();
+                H_[n - 1][n - 1] = cDiv.Re();
+                H_[n - 1][n] = cDiv.Im();
             }
 
             H_[n][n - 1] = Zero;
@@ -907,8 +907,8 @@ void Foam::EigenMatrix<cmptType>::realSchur()
                     if (EValsIm_[i] == 0)
                     {
                         complex cDiv = complex(-ra, -sa)/complex(w, q);
-                        H_[i][n - 1] = cDiv.real();
-                        H_[i][n] = cDiv.imag();
+                        H_[i][n - 1] = cDiv.Re();
+                        H_[i][n] = cDiv.Im();
                     }
                     else
                     {
@@ -930,8 +930,8 @@ void Foam::EigenMatrix<cmptType>::realSchur()
                                 complex(x*r - z*ra + q*sa, x*s - z*sa - q*ra)
                                     /complex(vr, vi);
 
-                        H_[i][n - 1] = cDiv.real();
-                        H_[i][n] = cDiv.imag();
+                        H_[i][n - 1] = cDiv.Re();
+                        H_[i][n] = cDiv.Im();
 
                         if (mag(x) > (mag(z) + mag(q)))
                         {
@@ -946,8 +946,8 @@ void Foam::EigenMatrix<cmptType>::realSchur()
                             complex cDiv = complex(-r - y*H_[i][n - 1], -s
                                     - y*H_[i][n])/complex(z, q);
 
-                            H_[i + 1][n - 1] = cDiv.real();
-                            H_[i + 1][n] = cDiv.imag();
+                            H_[i + 1][n - 1] = cDiv.Re();
+                            H_[i + 1][n] = cDiv.Im();
                         }
                     }
 
@@ -1047,15 +1047,15 @@ template<class cmptType>
 const Foam::SquareMatrix<Foam::complex>
 Foam::EigenMatrix<cmptType>::complexEVecs() const
 {
-    SquareMatrix<complex> EVecs(EVecs_.n());
+    SquareMatrix<complex> EVecs(EVecs_.n(), Zero);
 
-    std::transform
-    (
-        EVecs_.cbegin(),
-        EVecs_.cend(),
-        EVecs.begin(),
-        [&](const cmptType& x){ return complex(x); }
-    );
+    for (label i = 0; i < EVecs_.n(); ++i)
+    {
+        for (label j = 0; j < EVecs_.n(); ++j)
+        {
+            EVecs[i][j] = complex(EVecs_[i][j], 0.0);
+        }
+    }
 
     for (label i = 0; i < EValsIm_.size(); ++i)
     {
