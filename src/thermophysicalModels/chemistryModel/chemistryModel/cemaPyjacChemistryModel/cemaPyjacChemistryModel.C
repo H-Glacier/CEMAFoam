@@ -28,10 +28,13 @@ License
 
 \*---------------------------------------------------------------------------*/
 
+#include <vector>
+
 #include "cemaPyjacChemistryModel.H"
 #include "reactingMixture.H"
 #include "UniformField.H"
-#include "extrapolatedCalculatedFvPatchFields.H"
+#include "calculatedFvPatchFields.H"
+#include "SortableList.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -58,17 +61,20 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     nReaction_(reactions_.size()),
     Treact_
     (
-        BasicChemistryModel<ReactionThermo>::template getOrDefault<scalar>
+        this->template lookupOrDefault<scalar>
         (
             "Treact",
-            0.0
+            scalar(0)
         )
     ),
     RR_(nSpecie_),
     c_(nSpecie_),
     dcdt_(nSpecie_),
     sp_enthalpy_(nSpecie_),
-    nElements_(BasicChemistryModel<ReactionThermo>::template get<label>("nElements")),
+    nElements_
+    (
+        this->template lookupOrDefault<label>("nElements", label(0))
+    ),
     chemJacobian_(nSpecie_),
     cem_
     (
@@ -82,7 +88,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         ),
         this->mesh_,
         dimensionedScalar("cem", dimless, 0),
-        extrapolatedCalculatedFvPatchScalarField::typeName
+        calculatedFvPatchScalarField::typeName
     )
 {
     // Create the fields for the chemistry sources
@@ -102,7 +108,12 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
                     IOobject::NO_WRITE
                 ),
                 this->mesh(),
-                dimensionedScalar(dimMass/dimVolume/dimTime, Zero)
+                dimensionedScalar
+                (
+                    "zeroRR",
+                    dimMass/dimVolume/dimTime,
+                    scalar(0)
+                )
             )
         );
     }
@@ -435,11 +446,11 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::tc() const
                 this->mesh(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE,
-                false
+            false
             ),
             this->mesh(),
             dimensionedScalar("small", dimTime, SMALL),
-            extrapolatedCalculatedFvPatchScalarField::typeName
+            calculatedFvPatchScalarField::typeName
         )
     );
 
@@ -559,7 +570,12 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculateRR
                 IOobject::NO_WRITE
             ),
             this->mesh(),
-            dimensionedScalar(dimMass/dimVolume/dimTime, Zero)
+            dimensionedScalar
+            (
+                "zeroRRcalc",
+                dimMass/dimVolume/dimTime,
+                scalar(0)
+            )
         )
     );
 
@@ -769,14 +785,18 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cema
     }
 
     // Sort eigenvalues in ascending order, and track indices
-    const auto ascend = [&](scalar a, scalar b){ return a < b; };
-    const List<label> permut(EValsMag.sortPermutation(ascend));
+    const SortableList<scalar> sortedVals(EValsMag);
+    const labelList& permut = sortedVals.indices();
 
     // Skip conservation modes for elements and temperature
-    for (label i=0; i<nElements_+1; ++i) 
+    const label nSkip = min(permut.size(), nElements_ + 1);
+    for (label i = 0; i < nSkip; ++i)
     {
-        label idx = permut[i];
-        EValsRe[idx] = -1E30;
+        const label idx = permut[i];
+        if (idx >= 0 && idx < EValsRe.size())
+        {
+            EValsRe[idx] = -1e30;
+        }
     }
 
     cem = gMax(EValsRe);
