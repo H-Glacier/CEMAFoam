@@ -36,6 +36,19 @@ License
 #include "calculatedFvPatchFields.H"
 #include "SortableList.H"
 
+// Check OpenFOAM version for compatibility
+#ifdef OPENFOAM_PLUS
+    // OpenFOAM v2006 and later
+    #define USE_REFCAST
+#else
+    // OpenFOAM v6 and earlier
+    #ifdef FOAM_VERSION
+        #if FOAM_VERSION >= 2006
+            #define USE_REFCAST
+        #endif
+    #endif
+#endif
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class ReactionThermo, class ThermoType>
@@ -46,15 +59,30 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
 :
     BasicChemistryModel<ReactionThermo>(thermo),
     ODESystem(),
-    Y_(this->thermo().composition().Y()),
+    Y_(
+        // For OpenFOAM2006+, access Y() directly from reactingMixture
+        // For OpenFOAM v6, try to access from composition()
+        #ifdef USE_REFCAST
+            refCast<const reactingMixture<ThermoType>>(this->thermo()).Y()
+        #else
+            dynamic_cast<const reactingMixture<ThermoType>&>(this->thermo()).Y()
+        #endif
+    ),
     reactions_
     (
-        dynamic_cast<const reactingMixture<ThermoType>&>(this->thermo())
+        #ifdef USE_REFCAST
+            refCast<const reactingMixture<ThermoType>>(this->thermo())
+        #else
+            dynamic_cast<const reactingMixture<ThermoType>&>(this->thermo())
+        #endif
     ),
     specieThermo_
     (
-        dynamic_cast<const reactingMixture<ThermoType>&>
-            (this->thermo()).speciesData()
+        #ifdef USE_REFCAST
+            refCast<const reactingMixture<ThermoType>>(this->thermo()).speciesData()
+        #else
+            dynamic_cast<const reactingMixture<ThermoType>&>(this->thermo()).speciesData()
+        #endif
     ),
 
     nSpecie_(Y_.size()),
@@ -91,9 +119,45 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         calculatedFvPatchScalarField::typeName
     )
 {
+    // Validate initialization
+    Info<< "cemaPyjacChemistryModel: Starting initialization..." << endl;
+    Info<< "  BasicChemistryModel initialized: " << bool(this->thermo_) << endl;
+    Info<< "  Number of species detected: " << nSpecie_ << endl;
+    Info<< "  Number of reactions: " << nReaction_ << endl;
+    Info<< "  Y_ size: " << Y_.size() << endl;
+    
+    if (nSpecie_ == 0)
+    {
+        FatalError
+            << "cemaPyjacChemistryModel: No species found in the mixture!"
+            << " Check your thermophysicalProperties and chemistryProperties files."
+            << "\nPossible causes:"
+            << "\n  1. Missing or incorrect species definition in constant/thermophysicalProperties"
+            << "\n  2. Incompatible thermo type in constant/chemistryProperties"
+            << "\n  3. Version mismatch between OpenFOAM and CEMAFoam"
+            << exit(FatalError);
+    }
+    
+    if (Y_.size() != nSpecie_)
+    {
+        FatalError
+            << "cemaPyjacChemistryModel: Inconsistent species count!"
+            << "\n  Y_ size = " << Y_.size()
+            << "\n  nSpecie_ = " << nSpecie_
+            << exit(FatalError);
+    }
+    
     // Create the fields for the chemistry sources
     forAll(RR_, fieldi)
     {
+        if (fieldi >= Y_.size())
+        {
+            FatalError
+                << "cemaPyjacChemistryModel: Attempting to access Y_[" << fieldi 
+                << "] but Y_ size is " << Y_.size()
+                << exit(FatalError);
+        }
+        
         RR_.set
         (
             fieldi,
