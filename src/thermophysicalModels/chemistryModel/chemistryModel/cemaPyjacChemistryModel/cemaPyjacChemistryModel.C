@@ -125,9 +125,18 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     Info<< "cemaPyjacChemistryModel: Number of elements = " << nElements_ << endl; 
  
     if (this->chemistry_) {
+        if (nSpecie_ != NSP)
+        {
+            WarningInFunction
+                << "Number of species in OpenFOAM (" << nSpecie_
+                << ") does not match PyJac NSP (" << NSP << ")."
+                << endl;
+        }
+
         Info << "\n Evaluating species enthalpy of formation using PyJac\n" << endl;
         //- Enthalpy of formation for all species
-        std::vector<scalar> sp_enth_form(nSpecie_, 0.0);
+        // Allocate at least NSP to prevent buffer overflow in eval_h
+        std::vector<scalar> sp_enth_form(max(nSpecie_, (label)NSP), 0.0);
         //- Enthalpy of formation is taken from pyJac at T-standard (chem_utils.h)
         eval_h(298.15, sp_enth_form.data());
         for (label i = 0; i < nSpecie_; ++i)
@@ -338,14 +347,14 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::derivatives
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
     // Then we exclude last species from csum and dump all residuals
     // into last species to ensure mass conservation
-    csum -= c_[nSpecie_-1];
+    // csum -= c_[nSpecie_-1];
     c_[nSpecie_-1] = 1.0 - csum;
 
     TY[0] = T;
@@ -383,21 +392,21 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::jacobian
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
     // Then we exclude last species from csum and instead dump all
     // residuals into last species to ensure mass conservation
-    csum -= c_[nSpecie_-1];
+    // csum -= c_[nSpecie_-1];
     c_[nSpecie_-1] = 1.0 - csum;
 
     dfdc = Zero;
 
     TY[0] = T;
     // Assign nSpecies-1 species mass fractions to the TY vector
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         TY[i+1] = c_[i];
     }
