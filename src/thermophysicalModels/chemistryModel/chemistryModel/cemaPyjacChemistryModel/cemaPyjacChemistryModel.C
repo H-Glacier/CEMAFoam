@@ -331,21 +331,18 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::derivatives
 ) const
 {
     std::vector<double> TY(nSpecie_+1, 0.0);
-    // if TY has N+1 elements, diff(TY) has N elements
-    std::vector<double> dTYdt(nSpecie_, 0.0);
+    // if TY has N+1 elements, diff(TY) has N+1 elements (T + N species)
+    std::vector<double> dTYdt(nSpecie_+1, 0.0);
 
     const scalar p = c[0];
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
-    // Then we exclude last species from csum and dump all residuals
-    // into last species to ensure mass conservation
-    csum -= c_[nSpecie_-1];
     c_[nSpecie_-1] = 1.0 - csum;
 
     TY[0] = T;
@@ -377,20 +374,17 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::jacobian
 ) const
 {
     std::vector<double> TY(nSpecie_+1, 0.0); //###
-    std::vector<double> dfdy(nSpecie_*nSpecie_, 0.0); //###
+    std::vector<double> dfdy((nSpecie_+1)*(nSpecie_+1), 0.0); //###
 
     const scalar p = c[0];
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
-    // Then we exclude last species from csum and instead dump all
-    // residuals into last species to ensure mass conservation
-    csum -= c_[nSpecie_-1];
     c_[nSpecie_-1] = 1.0 - csum;
 
     dfdc = Zero;
@@ -413,17 +407,17 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::jacobian
         dfdc(j,0) = 0.0;
     }
 
-    label k = 0;
     // Loop cols
     for (label j = 1; j < nSpecie_+1; ++j)
     {
         // Loop rows
         for (label i = 1; i < nSpecie_+1; ++i)
         {
-            dfdc(i,j) = dfdy[k + i - 1];
-            chemJacobian_(i-1,j-1) = dfdy[k + i - 1];
+            // Assuming Column-Major storage from pyJac with dimension nSpecie_+1
+            label idx = (j-1)*(nSpecie_+1) + (i-1);
+            dfdc(i,j) = dfdy[idx];
+            chemJacobian_(i-1,j-1) = dfdy[idx];
         }
-        k += nSpecie_;
     }
 
     // Note that dcdt is not needed in most ODE solvers so here we just return 0
