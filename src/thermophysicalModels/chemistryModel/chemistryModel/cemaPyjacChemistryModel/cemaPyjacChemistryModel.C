@@ -114,9 +114,18 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     Info<< "cemaPyjacChemistryModel: Number of elements = " << nElements_ << endl; 
  
     if (this->chemistry_) {
+        if (nSpecie_ != NSP)
+        {
+            WarningInFunction
+                << "Number of species in OpenFOAM (" << nSpecie_
+                << ") does not match PyJac NSP (" << NSP << ")."
+                << endl;
+        }
+
         Info << "\n Evaluating species enthalpy of formation using PyJac\n" << endl;
         //- Enthalpy of formation for all species
-        std::vector<scalar> sp_enth_form(nSpecie_, 0.0);
+        // Allocate at least NSP to prevent buffer overflow in eval_h
+        std::vector<scalar> sp_enth_form(max(nSpecie_, (label)NSP), 0.0);
         //- Enthalpy of formation is taken from pyJac at T-standard (chem_utils.h)
         eval_h(298.15, sp_enth_form.data());
         for (label i = 0; i < nSpecie_; ++i)
