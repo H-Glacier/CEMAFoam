@@ -327,14 +327,14 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::derivatives
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
     // Then we exclude last species from csum and dump all residuals
     // into last species to ensure mass conservation
-    csum -= c_[nSpecie_-1];
+    // csum -= c_[nSpecie_-1];
     c_[nSpecie_-1] = 1.0 - csum;
 
     TY[0] = T;
@@ -372,21 +372,21 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::jacobian
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
     // Then we exclude last species from csum and instead dump all
     // residuals into last species to ensure mass conservation
-    csum -= c_[nSpecie_-1];
+    // csum -= c_[nSpecie_-1];
     c_[nSpecie_-1] = 1.0 - csum;
 
     dfdc = Zero;
 
     TY[0] = T;
     // Assign nSpecies-1 species mass fractions to the TY vector
-    forAll(c_, i)
+    for (label i=0; i<nSpecie_-1; i++)
     {
         TY[i+1] = c_[i];
     }
