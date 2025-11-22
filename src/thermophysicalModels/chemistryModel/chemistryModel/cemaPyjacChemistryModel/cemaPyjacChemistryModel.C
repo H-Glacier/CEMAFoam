@@ -91,9 +91,36 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         calculatedFvPatchScalarField::typeName
     )
 {
+    // Validate species count
+    if (nSpecie_ <= 0)
+    {
+        FatalErrorInFunction
+            << "Invalid number of species: " << nSpecie_ 
+            << ". Check your reaction mechanism file."
+            << exit(FatalError);
+    }
+
+    // Validate that Y_ is properly initialized
+    if (Y_.size() != nSpecie_)
+    {
+        FatalErrorInFunction
+            << "Mismatch between Y_.size() = " << Y_.size()
+            << " and nSpecie_ = " << nSpecie_
+            << ". Check your thermophysical properties configuration."
+            << exit(FatalError);
+    }
+
     // Create the fields for the chemistry sources
     forAll(RR_, fieldi)
     {
+        // Add bounds check
+        if (fieldi >= Y_.size())
+        {
+            FatalErrorInFunction
+                << "Attempting to access Y_[" << fieldi << "] but Y_.size() = " << Y_.size()
+                << exit(FatalError);
+        }
+        
         RR_.set
         (
             fieldi,
