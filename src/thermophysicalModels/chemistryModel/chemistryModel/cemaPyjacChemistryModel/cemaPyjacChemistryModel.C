@@ -36,9 +36,12 @@ License
 #include "calculatedFvPatchFields.H"
 #include "SortableList.H"
 
-// Include PyJac mechanism header for reaction constants
+// Include PyJac headers with extern "C" for proper linking
 extern "C" {
     #include "mechanism.h"
+    #include "chem_utils.h"
+    #include "dydt.h"
+    #include "jacob.h"
 }
 
 // Check OpenFOAM version for compatibility
