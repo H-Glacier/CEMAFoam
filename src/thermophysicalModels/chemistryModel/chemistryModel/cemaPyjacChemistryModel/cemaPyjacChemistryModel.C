@@ -85,6 +85,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     )
 {
     // Create the fields for the chemistry sources
+    // RR() is non-const here in constructor
     forAll(this->RR(), fieldi)
     {
         this->RR().set
@@ -489,7 +490,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::tc() const
                 }
             }
 
-            tc[celli] = nReaction*cSum/tc[celli];
+            tc[celli] = this->reactions().size()*cSum/tc[celli];
         }
     }
 
@@ -531,7 +532,12 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::Qdot() const
             {
                 // const scalar hi = specieThermo_[i].Hc();
                 scalar hi = sp_enthalpy_[i];
-                Qdot[celli] -= hi*this->RR()[i][celli];
+                // Access RR via standard accessor and cast away const if necessary or use const_cast
+                // Since RR() returns a reference to PtrList<volScalarField::Internal>, we can use it.
+                // But the error complained about discarding qualifiers, implying this method is const.
+                // Qdot() is const, so it cannot call non-const RR().
+                // We should use the const RR(i) accessor.
+                Qdot[celli] -= hi*this->RR(i)[celli];
             }
         }
     }
