@@ -13,8 +13,9 @@
 
 #include <string.h>
 #include <math.h>
-#include "../pyjacInclude/header.h"
-#include "../pyjacInclude/mechanism.h"
+#include "header.h"
+#include "mechanism.h"
+#include "chem_utils.h"
 
 // Dummy implementation for species enthalpy of formation
 void eval_h(const double T, double* h) {

@@ -9,8 +9,7 @@ EXE_INC = \
     -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude \
     -I$(LIB_SRC)/thermophysicalModels/functions/Polynomial \
     -I$(LIB_SRC)/thermophysicalModels/chemistryModel/lnInclude \
-    -IpyjacInclude \
-    -IpyjacSrc
+    -IpyjacInclude
 
 LIB_LIBS = \
     -lfiniteVolume \
@@ -21,5 +20,4 @@ LIB_LIBS = \
     -lreactionThermophysicalModels \
     -lspecie \
     -lchemistryModel \
-    -LpyjacSrc -lpyjac_dummy \
     -lm
