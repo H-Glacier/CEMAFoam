@@ -110,17 +110,8 @@ protected:
         //- Thermodynamic data of the species
         const PtrList<ThermoType>& specieThermo_;
 
-        //- Number of species
-        label nSpecie_;
-
-        //- Number of reactions
-        label nReaction_;
-
         //- Temperature below which the reaction rates are assumed 0
         scalar Treact_;
-
-        //- List of reaction rate per specie [kg/m3/s]
-        PtrList<volScalarField::Internal> RR_;
 
         //- Temporary concentration field
         mutable scalarField c_;

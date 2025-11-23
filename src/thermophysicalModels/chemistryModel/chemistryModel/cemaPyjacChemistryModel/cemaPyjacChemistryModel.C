@@ -57,8 +57,6 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             (this->thermo()).speciesData()
     ),
 
-    nSpecie_(Y_.size()),
-    nReaction_(reactions_.size()),
     Treact_
     (
         this->template lookupOrDefault<scalar>
@@ -67,15 +65,14 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             scalar(0)
         )
     ),
-    RR_(nSpecie_),
-    c_(nSpecie_),
-    dcdt_(nSpecie_),
-    sp_enthalpy_(nSpecie_),
+    c_(Y_.size()),
+    dcdt_(Y_.size()),
+    sp_enthalpy_(Y_.size()),
     nElements_
     (
         this->template lookupOrDefault<label>("nElements", label(0))
     ),
-    chemJacobian_(nSpecie_),
+    chemJacobian_(Y_.size()),
     cem_
     (
         IOobject
