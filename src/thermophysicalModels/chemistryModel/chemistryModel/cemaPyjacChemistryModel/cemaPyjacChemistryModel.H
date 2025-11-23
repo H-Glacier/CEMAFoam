@@ -104,6 +104,9 @@ protected:
         //- Reference to the field of specie mass fractions
         PtrList<volScalarField>& Y_;
 
+        //- Reactions
+        const PtrList<Reaction<ThermoType>>& reactions_;
+
         //- Thermodynamic data of the species
         const PtrList<ThermoType>& specieThermo_;
 
@@ -152,6 +155,9 @@ public:
 
 
     // Member Functions
+
+        //- The reactions
+        inline const PtrList<Reaction<ThermoType>>& reactions() const;
 
         //- Thermodynamic data of the species
         inline const PtrList<ThermoType>& specieThermo() const;

@@ -44,9 +44,13 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     ReactionThermo& thermo
 )
 :
-    BasicChemistryModel<ReactionThermo>(thermo),
-    ODESystem(),
+    Foam::BasicChemistryModel<ReactionThermo>(thermo),
+    Foam::ODESystem(),
     Y_(this->thermo().composition().Y()),
+    reactions_
+    (
+        dynamic_cast<const reactingMixture<ThermoType>&>(this->thermo())
+    ),
     specieThermo_
     (
         dynamic_cast<const reactingMixture<ThermoType>&>
