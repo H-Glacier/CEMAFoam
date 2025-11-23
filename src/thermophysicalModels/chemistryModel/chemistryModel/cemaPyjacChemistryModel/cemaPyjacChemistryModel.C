@@ -711,7 +711,7 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
             {
                 // CHEMICAL SOURCE TERM PER SPECIES
                 // (c_[i] - c0[i])*specieThermo_[i].W()/deltaT[celli]; // ###
-                this->RR_[i][celli] = rhoi*(this->c_[i] - c0[i])/deltaT[celli];
+                this->RR()[i][celli] = rhoi*(this->c_[i] - c0[i])/deltaT[celli];
             }
 
             if (this->time().write()) {
@@ -725,7 +725,7 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
         {
             for (label i=0; i<this->nSpecie(); i++)
             {
-                this->RR_[i][celli] = 0;
+                this->RR()[i][celli] = 0;
             }
         }
 
