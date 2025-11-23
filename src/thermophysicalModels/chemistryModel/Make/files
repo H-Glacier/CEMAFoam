@@ -1,4 +1,8 @@
 makeChemistryModels.C
 makeChemistrySolvers.C
 
+chemistryModel/cemaPyjacChemistryModel/cemaPyjacChemistryModel.C
+chemistryModel/cemaPyjacChemistryModel/EigenMatrix.C
+chemistrySolver/odePyjac/odePyjac.C
+
 LIB = $(FOAM_USER_LIBBIN)/libcemaPyjacChemistryModel
