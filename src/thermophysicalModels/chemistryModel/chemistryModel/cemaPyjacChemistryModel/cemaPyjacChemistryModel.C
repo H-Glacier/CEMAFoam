@@ -35,6 +35,29 @@ License
 #include "UniformField.H"
 #include "calculatedFvPatchFields.H"
 #include "SortableList.H"
+#include "foamVersion.H"
+#include "typeInfo.H"
+
+// Include PyJac headers with extern "C" for proper linking (needed when
+// building outside of the pyJac C sources themselves)
+extern "C"
+{
+    #include "mechanism.h"
+    #include "chem_utils.h"
+    #include "dydt.h"
+    #include "jacob.h"
+}
+
+// Detect OpenFOAM ABI differences. OpenCFD releases (eg, v2006+) expose the
+// reactingMixture mass-fraction registry directly via refCast, whereas
+// OpenFOAM v6 and earlier still route everything through composition().
+#if defined(OPENFOAM_PLUS) || defined(OPENFOAM_PLUS_VERSION)
+    #define CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST 1
+#elif defined(FOAM_VERSION)
+    #if FOAM_VERSION >= 2006
+        #define CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST 1
+    #endif
+#endif
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -46,6 +69,17 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
 :
     BasicChemistryModel<ReactionThermo>(thermo),
     ODESystem(),
+#if defined(CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST)
+    Y_(refCast<reactingMixture<ThermoType>>(this->thermo()).Y()),
+    reactions_
+    (
+        refCast<const reactingMixture<ThermoType>>(this->thermo())
+    ),
+    specieThermo_
+    (
+        refCast<const reactingMixture<ThermoType>>(this->thermo()).speciesData()
+    ),
+#else
     Y_(this->thermo().composition().Y()),
     reactions_
     (
@@ -56,6 +90,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         dynamic_cast<const reactingMixture<ThermoType>&>
             (this->thermo()).speciesData()
     ),
+#endif
 
     // OpenFOAM v6 exposes an auxiliary Ydefault entry in composition().Y().
     // Rely on the thermodynamics table to determine the actual number of species
@@ -94,6 +129,15 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         calculatedFvPatchScalarField::typeName
     )
 {
+    Info<< "cemaPyjacChemistryModel: 初始化开始…" << endl;
+    Info<< "  FOAM version: " << FOAMversion << endl;
+#if defined(CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST)
+    Info<< "  ABI 路径: OpenFOAM+ (v2006 及更新)" << endl;
+#else
+    Info<< "  ABI 路径: OpenFOAM Foundation (v6 及更早)" << endl;
+#endif
+    Info<< "  Thermo 类型: " << this->thermo().type() << endl;
+
     const label nMassFracFields = Y_.size();
 
     if (nMassFracFields < nSpecie_)
@@ -112,6 +156,10 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             << " They are ignored to stay compatible with OpenFOAM v6 layouts."
             << endl;
     }
+
+    Info<< "  读取到的质量分数字段数: " << nMassFracFields << endl;
+    Info<< "  有效物种数 (thermo 表): " << nSpecie_ << endl;
+    Info<< "  reactions_ 中注册的反应条目: " << nReaction_ << endl;
 
     // Create the fields for the chemistry sources
     forAll(RR_, fieldi)
