@@ -127,7 +127,9 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         this->mesh_,
         dimensionedScalar("cem", dimless, 0),
         calculatedFvPatchScalarField::typeName
-    )
+    ),
+    fallbackLogged_(nSpecie_, false),
+    yDefaultFieldPtr_(nullptr)
 {
     Info<< "cemaPyjacChemistryModel: 初始化开始…" << endl;
     Info<< "  FOAM version: " << FOAMversion << endl;
@@ -178,7 +180,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             (
                 IOobject
                 (
-                    "RR." + Yi(fieldi).name(),
+                    "RR." + specieNames[fieldi],
                     this->mesh().time().timeName(),
                     this->mesh(),
                     IOobject::NO_READ,

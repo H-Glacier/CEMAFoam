@@ -51,6 +51,29 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR()
 
 template<class ReactionThermo, class ThermoType>
 inline const Foam::volScalarField&
+Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::yDefaultField() const
+{
+    if (!yDefaultFieldPtr_)
+    {
+        const fvMesh& mesh = this->mesh();
+
+        if (!mesh.foundObject<volScalarField>("Ydefault"))
+        {
+            FatalErrorInFunction
+                << "未找到 Ydefault 质量分数场，且某些物种缺少独立质量分数文件。"
+                << "\n请确保在 0/ 目录下提供 Ydefault，或为所有物种创建单独的场。"
+                << exit(FatalError);
+        }
+
+        yDefaultFieldPtr_ = &mesh.lookupObject<volScalarField>("Ydefault");
+    }
+
+    return *yDefaultFieldPtr_;
+}
+
+
+template<class ReactionThermo, class ThermoType>
+inline const Foam::volScalarField&
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::Yi
 (
     const label i
@@ -58,6 +81,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::Yi
 {
     const auto& composition = this->thermo().composition();
     const wordList& specieNames = composition.species();
+    const fvMesh& mesh = this->mesh();
 
     if (i < 0 || i >= specieNames.size())
     {
@@ -68,7 +92,24 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::Yi
             << exit(FatalError);
     }
 
-    return composition.Y(i);
+    const word& fieldName = specieNames[i];
+
+    if (mesh.foundObject<volScalarField>(fieldName))
+    {
+        return mesh.lookupObject<volScalarField>(fieldName);
+    }
+
+    const volScalarField& fallback = this->yDefaultField();
+
+    if (!fallbackLogged_.empty() && i < fallbackLogged_.size() && !fallbackLogged_[i])
+    {
+        Info<< "cemaPyjacChemistryModel: 物种 " << fieldName
+            << " 未在 0/ 目录中提供独立质量分数场，改用 "
+            << fallback.name() << "。" << endl;
+        fallbackLogged_[i] = true;
+    }
+
+    return fallback;
 }
 
 
