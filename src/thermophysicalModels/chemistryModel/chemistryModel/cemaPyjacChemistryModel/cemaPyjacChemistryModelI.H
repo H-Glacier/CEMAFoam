@@ -50,6 +50,29 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR()
 
 
 template<class ReactionThermo, class ThermoType>
+inline const Foam::volScalarField&
+Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::Yi
+(
+    const label i
+) const
+{
+    const auto& composition = this->thermo().composition();
+    const wordList& specieNames = composition.species();
+
+    if (i < 0 || i >= specieNames.size())
+    {
+        FatalErrorInFunction
+            << "Requested specie index " << i
+            << " is outside the available range [0," << specieNames.size()
+            << "). 请检查 constant/thermophysicalProperties 中的物种定义。"
+            << exit(FatalError);
+    }
+
+    return composition.Y(i);
+}
+
+
+template<class ReactionThermo, class ThermoType>
 inline const Foam::PtrList<Foam::Reaction<ThermoType>>&
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::reactions() const
 {

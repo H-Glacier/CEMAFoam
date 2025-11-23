@@ -48,6 +48,7 @@ SourceFiles
 #include "ODESystem.H"
 #include "volFields.H"
 #include "simpleMatrix.H"
+#include "wordList.H"
 
 #include "EigenMatrix.H" // FOR EIGEN DECOMPOSITION
 
@@ -145,6 +146,10 @@ protected:
         //- Write access to chemical source terms
         //  (e.g. for multi-chemistry model)
         inline PtrList<volScalarField::Internal>& RR();
+
+            //- Safe access to specie mass-fraction field (null-checks pointers
+            //  that may appear on OpenFOAM v6 when species rely on Ydefault)
+            inline const volScalarField& Yi(const label i) const;
 
 
 public:

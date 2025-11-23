@@ -160,6 +160,13 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     Info<< "  读取到的质量分数字段数: " << nMassFracFields << endl;
     Info<< "  有效物种数 (thermo 表): " << nSpecie_ << endl;
     Info<< "  reactions_ 中注册的反应条目: " << nReaction_ << endl;
+    const wordList& specieNames = this->thermo().composition().species();
+    const label previewCount = min(nSpecie_, label(5));
+    for (label i = 0; i < previewCount; ++i)
+    {
+        Info<< "    物种[" << i << "] " << specieNames[i]
+            << " 使用场: " << Yi(i).name() << endl;
+    }
 
     // Create the fields for the chemistry sources
     forAll(RR_, fieldi)
@@ -171,7 +178,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             (
                 IOobject
                 (
-                    "RR." + Y_[fieldi].name(),
+                    "RR." + Yi(fieldi).name(),
                     this->mesh().time().timeName(),
                     this->mesh(),
                     IOobject::NO_READ,
@@ -543,7 +550,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::tc() const
 
             for (label i=0; i<nSpecie_; i++)
             {
-                c_[i] = rhoi*Y_[i][celli]/specieThermo_[i].W();
+                c_[i] = rhoi*Yi(i)[celli]/specieThermo_[i].W();
                 cSum += c_[i];
             }
 
@@ -659,8 +666,8 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculateRR
 
         for (label i=0; i<nSpecie_; i++)
         {
-            const scalar Yi = Y_[i][celli];
-            c_[i] = rhoi*Yi/specieThermo_[i].W();
+            const scalar YiVal = Yi(i)[celli];
+            c_[i] = rhoi*YiVal/specieThermo_[i].W();
         }
 
         const scalar w = omegaI
@@ -706,8 +713,8 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculate()
 
         for (label i=0; i<nSpecie_; i++)
         {
-            const scalar Yi = Y_[i][celli];
-            c_[i] = rhoi*Yi/specieThermo_[i].W();
+            const scalar YiVal = Yi(i)[celli];
+            c_[i] = rhoi*YiVal/specieThermo_[i].W();
         }
 
         omega(c_, Ti, pi, dcdt_);
@@ -755,8 +762,8 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
 
             for (label i=0; i<nSpecie_; i++)
             {
-                // c_[i] = rhoi*Y_[i][celli]/specieThermo_[i].W();
-                c_[i] = Y_[i][celli];
+                // c_[i] = rhoi*Yi(i)[celli]/specieThermo_[i].W();
+                c_[i] = Yi(i)[celli];
                 c0[i] = c_[i];
             }
 
