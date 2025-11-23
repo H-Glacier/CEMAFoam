@@ -47,10 +47,6 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     BasicChemistryModel<ReactionThermo>(thermo),
     ODESystem(),
     Y_(this->thermo().composition().Y()),
-    reactions_
-    (
-        dynamic_cast<const reactingMixture<ThermoType>&>(this->thermo())
-    ),
     specieThermo_
     (
         dynamic_cast<const reactingMixture<ThermoType>&>
@@ -89,9 +85,9 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     )
 {
     // Create the fields for the chemistry sources
-    forAll(RR_, fieldi)
+    forAll(this->RR(), fieldi)
     {
-        RR_.set
+        this->RR().set
         (
             fieldi,
             new volScalarField::Internal
@@ -116,18 +112,25 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     }
 
     Info<< "cemaPyjacChemistryModel: Number of species = " << nSpecie_
-        << "\n  and reactions (from reaction file, expected 0 with PyJac) = " << nReaction_ << endl; 
+        << "\n  and reactions (from reaction file, expected 0 with PyJac) = " << this->reactions().size() << endl; 
         // Note that nReaction_ should be updated with PyJAC
         // PERHAPS TO OVERWRITE IN THE SRC DURING DYNAMIC BINDING
     Info<< "cemaPyjacChemistryModel: Number of elements = " << nElements_ << endl; 
- 
+
     if (this->chemistry_) {
         Info << "\n Evaluating species enthalpy of formation using PyJac\n" << endl;
+        if (this->nSpecie_ != Y_.size())
+        {
+             FatalErrorInFunction
+                 << "nSpecie_ (" << this->nSpecie_ << ") does not match Y_.size() (" << Y_.size() << ")."
+                 << " This indicates incorrect initialization or pyJac mismatch."
+                 << exit(FatalError);
+        }
         //- Enthalpy of formation for all species
-        std::vector<scalar> sp_enth_form(nSpecie_, 0.0);
+        std::vector<scalar> sp_enth_form(this->nSpecie_, 0.0);
         //- Enthalpy of formation is taken from pyJac at T-standard (chem_utils.h)
         eval_h(298.15, sp_enth_form.data());
-        for (label i = 0; i < nSpecie_; ++i)
+        for (label i = 0; i < this->nSpecie_; ++i)
         { 
             sp_enthalpy_[i] = sp_enth_form[i];
         }
