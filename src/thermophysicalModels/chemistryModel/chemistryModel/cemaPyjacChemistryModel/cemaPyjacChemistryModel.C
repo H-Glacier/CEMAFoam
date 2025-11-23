@@ -36,6 +36,11 @@ License
 #include "calculatedFvPatchFields.H"
 #include "SortableList.H"
 
+// Include PyJac mechanism header for reaction constants
+extern "C" {
+    #include "mechanism.h"
+}
+
 // Check OpenFOAM version for compatibility
 #ifdef OPENFOAM_PLUS
     // OpenFOAM v2006 and later
@@ -86,7 +91,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     ),
 
     nSpecie_(Y_.size()),
-    nReaction_(reactions_.size()),
+    nReaction_(FWD_RATES),  // Use PyJac's forward reaction count from mechanism.h
     Treact_
     (
         this->template lookupOrDefault<scalar>
@@ -183,9 +188,11 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     }
 
     Info<< "cemaPyjacChemistryModel: Number of species = " << nSpecie_
-        << "\n  and reactions (from reaction file, expected 0 with PyJac) = " << nReaction_ << endl; 
-        // Note that nReaction_ should be updated with PyJAC
-        // PERHAPS TO OVERWRITE IN THE SRC DURING DYNAMIC BINDING
+        << " (PyJac NSP = " << NSP << ")" << endl;
+    Info<< "cemaPyjacChemistryModel: Number of reactions from PyJac:" << endl
+        << "  Forward reactions = " << FWD_RATES << endl
+        << "  Reversible reactions = " << REV_RATES << endl
+        << "  Pressure-dependent reactions = " << PRES_MOD_RATES << endl;
     Info<< "cemaPyjacChemistryModel: Number of elements = " << nElements_ << endl; 
  
     if (this->chemistry_) {
