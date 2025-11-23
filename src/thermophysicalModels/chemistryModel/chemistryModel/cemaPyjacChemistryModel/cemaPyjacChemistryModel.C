@@ -63,9 +63,9 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         // For OpenFOAM2006+, access Y() directly from reactingMixture
         // For OpenFOAM v6, try to access from composition()
         #ifdef USE_REFCAST
-            refCast<const reactingMixture<ThermoType>>(this->thermo()).Y()
+            refCast<reactingMixture<ThermoType>>(this->thermo()).Y()
         #else
-            dynamic_cast<const reactingMixture<ThermoType>&>(this->thermo()).Y()
+            dynamic_cast<reactingMixture<ThermoType>&>(this->thermo()).Y()
         #endif
     ),
     reactions_
