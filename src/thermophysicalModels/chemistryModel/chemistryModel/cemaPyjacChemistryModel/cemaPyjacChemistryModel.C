@@ -57,7 +57,10 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             (this->thermo()).speciesData()
     ),
 
-    nSpecie_(Y_.size()),
+    // OpenFOAM v6 exposes an auxiliary Ydefault entry in composition().Y().
+    // Rely on the thermodynamics table to determine the actual number of species
+    // so that we do not overrun specieThermo_ when accessing transport data.
+    nSpecie_(specieThermo_.size()),
     nReaction_(reactions_.size()),
     Treact_
     (
@@ -91,6 +94,25 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         calculatedFvPatchScalarField::typeName
     )
 {
+    const label nMassFracFields = Y_.size();
+
+    if (nMassFracFields < nSpecie_)
+    {
+        FatalErrorInFunction
+            << "chemistry model expects " << nSpecie_ << " species but only "
+            << nMassFracFields << " mass-fraction fields are available."
+            << " Check constant/thermophysicalProperties and your mechanism files."
+            << exit(FatalError);
+    }
+    else if (nMassFracFields > nSpecie_)
+    {
+        Info<< "cemaPyjacChemistryModel: detected "
+            << (nMassFracFields - nSpecie_)
+            << " auxiliary mass-fraction field(s) (e.g. Ydefault) in the registry."
+            << " They are ignored to stay compatible with OpenFOAM v6 layouts."
+            << endl;
+    }
+
     // Create the fields for the chemistry sources
     forAll(RR_, fieldi)
     {
