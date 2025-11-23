@@ -20,5 +20,4 @@ LIB_LIBS = \
     -lreactionThermophysicalModels \
     -lspecie \
     -lchemistryModel \
-    pyjacSrc/pyjac_dummy.o \
     -lm

@@ -1,4 +1,6 @@
 makeChemistryModels.C
 makeChemistrySolvers.C
 
+pyjacSrc/pyjac_dummy.c
+
 LIB = $(FOAM_USER_LIBBIN)/libcemaPyjacChemistryModel
