@@ -110,12 +110,6 @@ protected:
         //- Thermodynamic data of the species
         const PtrList<ThermoType>& specieThermo_;
 
-        //- Number of species
-        label nSpecie_;
-
-        //- Number of reactions
-        label nReaction_;
-
         //- Temperature below which the reaction rates are assumed 0
         scalar Treact_;
 

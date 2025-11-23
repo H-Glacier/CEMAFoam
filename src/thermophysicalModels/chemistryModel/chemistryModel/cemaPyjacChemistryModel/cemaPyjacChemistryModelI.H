@@ -37,7 +37,7 @@ inline Foam::label
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::nEqns() const
 {
     // nEqns = number of species (N-1) + temperature + pressure
-    return nSpecie_ + 1;
+    return this->nSpecie() + 1;
 }
 
 
@@ -45,7 +45,7 @@ template<class ReactionThermo, class ThermoType>
 inline Foam::PtrList<Foam::DimensionedField<Foam::scalar, Foam::volMesh>>&
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR()
 {
-    return RR_;
+    return this->RR_;
 }
 
 
@@ -69,7 +69,7 @@ template<class ReactionThermo, class ThermoType>
 inline Foam::label
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::nSpecie() const
 {
-    return nSpecie_;
+    return BasicChemistryModel<ReactionThermo>::nSpecie();
 }
 
 
@@ -77,7 +77,7 @@ template<class ReactionThermo, class ThermoType>
 inline Foam::label
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::nReaction() const
 {
-    return nReaction_;
+    return BasicChemistryModel<ReactionThermo>::nReaction();
 }
 
 
@@ -104,7 +104,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR
     const label i
 ) const
 {
-    return RR_[i];
+    return this->RR_[i];
 }
 
 template<class ReactionThermo, class ThermoType>
@@ -114,7 +114,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR
     const label i
 )
 {
-    return RR_[i];
+    return this->RR_[i];
 }
 
 

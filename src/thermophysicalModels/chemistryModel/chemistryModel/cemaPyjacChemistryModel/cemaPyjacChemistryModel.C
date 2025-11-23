@@ -44,8 +44,8 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     ReactionThermo& thermo
 )
 :
-    BasicChemistryModel<ReactionThermo>(thermo),
-    ODESystem(),
+    Foam::BasicChemistryModel<ReactionThermo>(thermo),
+    Foam::ODESystem(),
     Y_(this->thermo().composition().Y()),
     reactions_
     (
@@ -57,8 +57,6 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             (this->thermo()).speciesData()
     ),
 
-    nSpecie_(Y_.size()),
-    nReaction_(reactions_.size()),
     Treact_
     (
         this->template lookupOrDefault<scalar>
@@ -67,15 +65,15 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             scalar(0)
         )
     ),
-    RR_(nSpecie_),
-    c_(nSpecie_),
-    dcdt_(nSpecie_),
-    sp_enthalpy_(nSpecie_),
+    RR_(this->nSpecie()),
+    c_(Y_.size()),
+    dcdt_(Y_.size()),
+    sp_enthalpy_(Y_.size()),
     nElements_
     (
         this->template lookupOrDefault<label>("nElements", label(0))
     ),
-    chemJacobian_(nSpecie_),
+    chemJacobian_(Y_.size()),
     cem_
     (
         IOobject
@@ -92,9 +90,10 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     )
 {
     // Create the fields for the chemistry sources
-    forAll(RR_, fieldi)
+    // RR() is non-const here in constructor
+    forAll(this->RR(), fieldi)
     {
-        RR_.set
+        this->RR().set
         (
             fieldi,
             new volScalarField::Internal
@@ -118,19 +117,26 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         );
     }
 
-    Info<< "cemaPyjacChemistryModel: Number of species = " << nSpecie_
-        << "\n  and reactions (from reaction file, expected 0 with PyJac) = " << nReaction_ << endl; 
+    Info<< "cemaPyjacChemistryModel: Number of species = " << this->nSpecie()
+        << "\n  and reactions (from reaction file, expected 0 with PyJac) = " << this->reactions().size() << endl; 
         // Note that nReaction_ should be updated with PyJAC
         // PERHAPS TO OVERWRITE IN THE SRC DURING DYNAMIC BINDING
     Info<< "cemaPyjacChemistryModel: Number of elements = " << nElements_ << endl; 
- 
+
     if (this->chemistry_) {
         Info << "\n Evaluating species enthalpy of formation using PyJac\n" << endl;
+        if (this->nSpecie() != Y_.size())
+        {
+             FatalErrorInFunction
+                 << "nSpecie_ (" << this->nSpecie() << ") does not match Y_.size() (" << Y_.size() << ")."
+                 << " This indicates incorrect initialization or pyJac mismatch."
+                 << exit(FatalError);
+        }
         //- Enthalpy of formation for all species
-        std::vector<scalar> sp_enth_form(nSpecie_, 0.0);
+        std::vector<scalar> sp_enth_form(this->nSpecie(), 0.0);
         //- Enthalpy of formation is taken from pyJac at T-standard (chem_utils.h)
         eval_h(298.15, sp_enth_form.data());
-        for (label i = 0; i < nSpecie_; ++i)
+        for (label i = 0; i < this->nSpecie(); ++i)
         { 
             sp_enthalpy_[i] = sp_enth_form[i];
         }
@@ -163,9 +169,9 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::omega
 
     dcdt = Zero;
 
-    forAll(reactions_, i)
+    forAll(this->reactions(), i)
     {
-        const Reaction<ThermoType>& R = reactions_[i];
+        const Reaction<ThermoType>& R = this->reactions()[i];
 
         scalar omegai = omega
         (
@@ -204,7 +210,7 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::omegaI
     label& rRef
 ) const
 {
-    const Reaction<ThermoType>& R = reactions_[index];
+    const Reaction<ThermoType>& R = this->reactions()[index];
     scalar w = omega(R, c, T, p, pf, cf, lRef, pr, cr, rRef);
     return(w);
 }
@@ -330,20 +336,20 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::derivatives
     scalarField& dcdt
 ) const
 {
-    std::vector<double> TY(nSpecie_+1, 0.0);
+    std::vector<double> TY(this->nSpecie()+1, 0.0);
     // if TY has N+1 elements, diff(TY) has N+1 elements (T + N species)
-    std::vector<double> dTYdt(nSpecie_+1, 0.0);
+    std::vector<double> dTYdt(this->nSpecie()+1, 0.0);
 
     const scalar p = c[0];
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    for (label i=0; i<nSpecie_-1; i++)
+    for (label i=0; i<this->nSpecie()-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
-    c_[nSpecie_-1] = 1.0 - csum;
+    c_[this->nSpecie()-1] = 1.0 - csum;
 
     TY[0] = T;
     forAll(c_, i)
@@ -357,7 +363,7 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::derivatives
     dcdt[0] = 0.0;
 
     // Back substitute into dcdt (dcdt has nSpecie+1 elements for diff(PTY))
-    for (label i = 0; i < nSpecie_; ++i)
+    for (label i = 0; i < this->nSpecie(); ++i)
     {
         dcdt[i+1] = dTYdt[i];
     }
@@ -373,19 +379,19 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::jacobian
     scalarSquareMatrix& dfdc
 ) const
 {
-    std::vector<double> TY(nSpecie_+1, 0.0); //###
-    std::vector<double> dfdy((nSpecie_+1)*(nSpecie_+1), 0.0); //###
+    std::vector<double> TY(this->nSpecie()+1, 0.0); //###
+    std::vector<double> dfdy((this->nSpecie()+1)*(this->nSpecie()+1), 0.0); //###
 
     const scalar p = c[0];
     const scalar T = c[1];
 
     scalar csum = 0.0;
-    for (label i=0; i<nSpecie_-1; i++)
+    for (label i=0; i<this->nSpecie()-1; i++)
     {
         c_[i] = max(c[i+2], 0.0);
         csum += c_[i];
     }
-    c_[nSpecie_-1] = 1.0 - csum;
+    c_[this->nSpecie()-1] = 1.0 - csum;
 
     dfdc = Zero;
 
@@ -401,20 +407,20 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::jacobian
     // Back substitution to update dfdc
 
     // Assign first row and column to zero as they correspond to const pressure
-    for (label j = 0; j < nSpecie_ + 1; ++j)
+    for (label j = 0; j < this->nSpecie() + 1; ++j)
     {
         dfdc(0,j) = 0.0;
         dfdc(j,0) = 0.0;
     }
 
     // Loop cols
-    for (label j = 1; j < nSpecie_+1; ++j)
+    for (label j = 1; j < this->nSpecie()+1; ++j)
     {
         // Loop rows
-        for (label i = 1; i < nSpecie_+1; ++i)
+        for (label i = 1; i < this->nSpecie()+1; ++i)
         {
             // Assuming Column-Major storage from pyJac with dimension nSpecie_+1
-            label idx = (j-1)*(nSpecie_+1) + (i-1);
+            label idx = (j-1)*(this->nSpecie()+1) + (i-1);
             dfdc(i,j) = dfdy[idx];
             chemJacobian_(i-1,j-1) = dfdy[idx];
         }
@@ -456,7 +462,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::tc() const
     const scalarField& T = this->thermo().T();
     const scalarField& p = this->thermo().p();
 
-    const label nReaction = reactions_.size();
+    const label nReaction = this->reactions().size();
 
     scalar pf, cf, pr, cr;
     label lRef, rRef;
@@ -471,15 +477,15 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::tc() const
 
             scalar cSum = 0.0;
 
-            for (label i=0; i<nSpecie_; i++)
+            for (label i=0; i<this->nSpecie(); i++)
             {
                 c_[i] = rhoi*Y_[i][celli]/specieThermo_[i].W();
                 cSum += c_[i];
             }
 
-            forAll(reactions_, i)
+            forAll(this->reactions(), i)
             {
-                const Reaction<ThermoType>& R = reactions_[i];
+                const Reaction<ThermoType>& R = this->reactions()[i];
 
                 omega(R, c_, Ti, pi, pf, cf, lRef, pr, cr, rRef);
 
@@ -489,7 +495,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::tc() const
                 }
             }
 
-            tc[celli] = nReaction*cSum/tc[celli];
+            tc[celli] = this->reactions().size()*cSum/tc[celli];
         }
     }
 
@@ -531,7 +537,12 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::Qdot() const
             {
                 // const scalar hi = specieThermo_[i].Hc();
                 scalar hi = sp_enthalpy_[i];
-                Qdot[celli] -= hi*RR_[i][celli];
+                // Access RR via standard accessor and cast away const if necessary or use const_cast
+                // Since RR() returns a reference to PtrList<volScalarField::Internal>, we can use it.
+                // But the error complained about discarding qualifiers, implying this method is const.
+                // Qdot() is const, so it cannot call non-const RR().
+                // We should use the const RR(i) accessor.
+                Qdot[celli] -= hi*this->RR(i)[celli];
             }
         }
     }
@@ -587,7 +598,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculateRR
         const scalar Ti = T[celli];
         const scalar pi = p[celli];
 
-        for (label i=0; i<nSpecie_; i++)
+        for (label i=0; i<this->nSpecie(); i++)
         {
             const scalar Yi = Y_[i][celli];
             c_[i] = rhoi*Yi/specieThermo_[i].W();
@@ -634,7 +645,7 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculate()
         const scalar Ti = T[celli];
         const scalar pi = p[celli];
 
-        for (label i=0; i<nSpecie_; i++)
+        for (label i=0; i<this->nSpecie(); i++)
         {
             const scalar Yi = Y_[i][celli];
             c_[i] = rhoi*Yi/specieThermo_[i].W();
@@ -642,9 +653,9 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculate()
 
         omega(c_, Ti, pi, dcdt_);
 
-        for (label i=0; i<nSpecie_; i++)
+        for (label i=0; i<this->nSpecie(); i++)
         {
-            RR_[i][celli] = dcdt_[i]*specieThermo_[i].W();
+            this->RR()[i][celli] = dcdt_[i]*specieThermo_[i].W();
         }
     }
 }
@@ -672,7 +683,7 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
     const scalarField& T = this->thermo().T();
     const scalarField& p = this->thermo().p();
 
-    scalarField c0(nSpecie_);
+    scalarField c0(this->nSpecie());
 
     forAll(rho, celli)
     {
@@ -683,7 +694,7 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
             const scalar rhoi = rho[celli];
             scalar pi = p[celli];
 
-            for (label i=0; i<nSpecie_; i++)
+            for (label i=0; i<this->nSpecie(); i++)
             {
                 // c_[i] = rhoi*Y_[i][celli]/specieThermo_[i].W();
                 c_[i] = Y_[i][celli];
@@ -707,11 +718,11 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
             this->deltaTChem_[celli] =
                 min(this->deltaTChem_[celli], this->deltaTChemMax_);
 
-            for (label i=0; i<nSpecie_; i++)
+            for (label i=0; i<this->nSpecie(); i++)
             {
                 // CHEMICAL SOURCE TERM PER SPECIES
                 // (c_[i] - c0[i])*specieThermo_[i].W()/deltaT[celli]; // ###
-                this->RR_[i][celli] = rhoi*(this->c_[i] - c0[i])/deltaT[celli];
+                this->RR()[i][celli] = rhoi*(this->c_[i] - c0[i])/deltaT[celli];
             }
 
             if (this->time().write()) {
@@ -723,9 +734,9 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
         }
         else
         {
-            for (label i=0; i<nSpecie_; i++)
+            for (label i=0; i<this->nSpecie(); i++)
             {
-                RR_[i][celli] = 0;
+                this->RR()[i][celli] = 0;
             }
         }
 
