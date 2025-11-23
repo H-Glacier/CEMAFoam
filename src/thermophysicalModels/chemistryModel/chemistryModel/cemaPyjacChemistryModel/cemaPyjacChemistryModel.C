@@ -35,6 +35,29 @@ License
 #include "UniformField.H"
 #include "calculatedFvPatchFields.H"
 #include "SortableList.H"
+#include "foamVersion.H"
+#include "typeInfo.H"
+
+// Include PyJac headers with extern "C" for proper linking (needed when
+// building outside of the pyJac C sources themselves)
+extern "C"
+{
+    #include "mechanism.h"
+    #include "chem_utils.h"
+    #include "dydt.h"
+    #include "jacob.h"
+}
+
+// Detect OpenFOAM ABI differences. OpenCFD releases (eg, v2006+) expose the
+// reactingMixture mass-fraction registry directly via refCast, whereas
+// OpenFOAM v6 and earlier still route everything through composition().
+#if defined(OPENFOAM_PLUS) || defined(OPENFOAM_PLUS_VERSION)
+    #define CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST 1
+#elif defined(FOAM_VERSION)
+    #if FOAM_VERSION >= 2006
+        #define CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST 1
+    #endif
+#endif
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -46,6 +69,17 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
 :
     BasicChemistryModel<ReactionThermo>(thermo),
     ODESystem(),
+#if defined(CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST)
+    Y_(refCast<reactingMixture<ThermoType>>(this->thermo()).Y()),
+    reactions_
+    (
+        refCast<const reactingMixture<ThermoType>>(this->thermo())
+    ),
+    specieThermo_
+    (
+        refCast<const reactingMixture<ThermoType>>(this->thermo()).speciesData()
+    ),
+#else
     Y_(this->thermo().composition().Y()),
     reactions_
     (
@@ -56,6 +90,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         dynamic_cast<const reactingMixture<ThermoType>&>
             (this->thermo()).speciesData()
     ),
+#endif
 
     // OpenFOAM v6 exposes an auxiliary Ydefault entry in composition().Y().
     // Rely on the thermodynamics table to determine the actual number of species
@@ -92,8 +127,19 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
         this->mesh_,
         dimensionedScalar("cem", dimless, 0),
         calculatedFvPatchScalarField::typeName
-    )
+    ),
+    fallbackLogged_(nSpecie_, false),
+    yDefaultFieldPtr_(nullptr)
 {
+    Info<< "cemaPyjacChemistryModel: 初始化开始…" << endl;
+    Info<< "  FOAM version: " << FOAMversion << endl;
+#if defined(CEMAPYJAC_USE_REACTINGMIXTURE_REFCAST)
+    Info<< "  ABI 路径: OpenFOAM+ (v2006 及更新)" << endl;
+#else
+    Info<< "  ABI 路径: OpenFOAM Foundation (v6 及更早)" << endl;
+#endif
+    Info<< "  Thermo 类型: " << this->thermo().type() << endl;
+
     const label nMassFracFields = Y_.size();
 
     if (nMassFracFields < nSpecie_)
@@ -113,6 +159,17 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             << endl;
     }
 
+    Info<< "  读取到的质量分数字段数: " << nMassFracFields << endl;
+    Info<< "  有效物种数 (thermo 表): " << nSpecie_ << endl;
+    Info<< "  reactions_ 中注册的反应条目: " << nReaction_ << endl;
+    const wordList& specieNames = this->thermo().composition().species();
+    const label previewCount = min(nSpecie_, label(5));
+    for (label i = 0; i < previewCount; ++i)
+    {
+        Info<< "    物种[" << i << "] " << specieNames[i]
+            << " 使用场: " << Yi(i).name() << endl;
+    }
+
     // Create the fields for the chemistry sources
     forAll(RR_, fieldi)
     {
@@ -123,7 +180,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             (
                 IOobject
                 (
-                    "RR." + Y_[fieldi].name(),
+                    "RR." + specieNames[fieldi],
                     this->mesh().time().timeName(),
                     this->mesh(),
                     IOobject::NO_READ,
@@ -495,7 +552,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::tc() const
 
             for (label i=0; i<nSpecie_; i++)
             {
-                c_[i] = rhoi*Y_[i][celli]/specieThermo_[i].W();
+                c_[i] = rhoi*Yi(i)[celli]/specieThermo_[i].W();
                 cSum += c_[i];
             }
 
@@ -611,8 +668,8 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculateRR
 
         for (label i=0; i<nSpecie_; i++)
         {
-            const scalar Yi = Y_[i][celli];
-            c_[i] = rhoi*Yi/specieThermo_[i].W();
+            const scalar YiVal = Yi(i)[celli];
+            c_[i] = rhoi*YiVal/specieThermo_[i].W();
         }
 
         const scalar w = omegaI
@@ -658,8 +715,8 @@ void Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::calculate()
 
         for (label i=0; i<nSpecie_; i++)
         {
-            const scalar Yi = Y_[i][celli];
-            c_[i] = rhoi*Yi/specieThermo_[i].W();
+            const scalar YiVal = Yi(i)[celli];
+            c_[i] = rhoi*YiVal/specieThermo_[i].W();
         }
 
         omega(c_, Ti, pi, dcdt_);
@@ -707,8 +764,8 @@ Foam::scalar Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::solve
 
             for (label i=0; i<nSpecie_; i++)
             {
-                // c_[i] = rhoi*Y_[i][celli]/specieThermo_[i].W();
-                c_[i] = Y_[i][celli];
+                // c_[i] = rhoi*Yi(i)[celli]/specieThermo_[i].W();
+                c_[i] = Yi(i)[celli];
                 c0[i] = c_[i];
             }
 

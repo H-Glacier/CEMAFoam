@@ -48,6 +48,8 @@ SourceFiles
 #include "ODESystem.H"
 #include "volFields.H"
 #include "simpleMatrix.H"
+#include "wordList.H"
+#include "boolList.H"
 
 #include "EigenMatrix.H" // FOR EIGEN DECOMPOSITION
 
@@ -140,11 +142,23 @@ protected:
         // CEMA geometric fields
         volScalarField cem_;
 
+          //- Cache for logging missing explicit Y fields
+          mutable boolList fallbackLogged_;
+
+          //- Cached pointer to Ydefault field (lazy lookup)
+          mutable const volScalarField* yDefaultFieldPtr_;
+
     // Protected Member Functions
 
         //- Write access to chemical source terms
         //  (e.g. for multi-chemistry model)
         inline PtrList<volScalarField::Internal>& RR();
+
+          inline const volScalarField& yDefaultField() const;
+
+            //- Safe access to specie mass-fraction field (null-checks pointers
+            //  that may appear on OpenFOAM v6 when species rely on Ydefault)
+            inline const volScalarField& Yi(const label i) const;
 
 
 public:

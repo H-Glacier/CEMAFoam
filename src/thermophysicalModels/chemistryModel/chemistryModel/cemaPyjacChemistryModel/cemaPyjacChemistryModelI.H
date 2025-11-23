@@ -50,6 +50,70 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR()
 
 
 template<class ReactionThermo, class ThermoType>
+inline const Foam::volScalarField&
+Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::yDefaultField() const
+{
+    if (!yDefaultFieldPtr_)
+    {
+        const fvMesh& mesh = this->mesh();
+
+        if (!mesh.foundObject<volScalarField>("Ydefault"))
+        {
+            FatalErrorInFunction
+                << "未找到 Ydefault 质量分数场，且某些物种缺少独立质量分数文件。"
+                << "\n请确保在 0/ 目录下提供 Ydefault，或为所有物种创建单独的场。"
+                << exit(FatalError);
+        }
+
+        yDefaultFieldPtr_ = &mesh.lookupObject<volScalarField>("Ydefault");
+    }
+
+    return *yDefaultFieldPtr_;
+}
+
+
+template<class ReactionThermo, class ThermoType>
+inline const Foam::volScalarField&
+Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::Yi
+(
+    const label i
+) const
+{
+    const auto& composition = this->thermo().composition();
+    const wordList& specieNames = composition.species();
+    const fvMesh& mesh = this->mesh();
+
+    if (i < 0 || i >= specieNames.size())
+    {
+        FatalErrorInFunction
+            << "Requested specie index " << i
+            << " is outside the available range [0," << specieNames.size()
+            << "). 请检查 constant/thermophysicalProperties 中的物种定义。"
+            << exit(FatalError);
+    }
+
+    const word& fieldName = specieNames[i];
+
+    if (mesh.foundObject<volScalarField>(fieldName))
+    {
+        return mesh.lookupObject<volScalarField>(fieldName);
+    }
+
+    const volScalarField& fallback = this->yDefaultField();
+
+    if (!fallbackLogged_.empty() && i < fallbackLogged_.size() && !fallbackLogged_[i])
+    {
+        Info<< "cemaPyjacChemistryModel: 物种 " << fieldName
+            << " 未在 0/ 目录中提供独立质量分数场，改用 "
+            << fallback.name() << "。" << endl;
+        fallbackLogged_[i] = true;
+    }
+
+    return fallback;
+}
+
+
+template<class ReactionThermo, class ThermoType>
 inline const Foam::PtrList<Foam::Reaction<ThermoType>>&
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::reactions() const
 {
