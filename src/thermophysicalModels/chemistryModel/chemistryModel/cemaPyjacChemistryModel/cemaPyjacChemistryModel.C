@@ -121,7 +121,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
 {
     // Validate initialization
     Info<< "cemaPyjacChemistryModel: Starting initialization..." << endl;
-    Info<< "  BasicChemistryModel initialized: " << bool(this->thermo_) << endl;
+    Info<< "  Thermo type: " << this->thermo_.type() << endl;
     Info<< "  Number of species detected: " << nSpecie_ << endl;
     Info<< "  Number of reactions: " << nReaction_ << endl;
     Info<< "  Y_ size: " << Y_.size() << endl;
