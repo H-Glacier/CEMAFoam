@@ -45,7 +45,7 @@ template<class ReactionThermo, class ThermoType>
 inline Foam::PtrList<Foam::DimensionedField<Foam::scalar, Foam::volMesh>>&
 Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR()
 {
-    return BasicChemistryModel<ReactionThermo>::RR_;
+    return this->RR_;
 }
 
 
@@ -104,7 +104,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR
     const label i
 ) const
 {
-    return BasicChemistryModel<ReactionThermo>::RR_[i];
+    return this->RR_[i];
 }
 
 template<class ReactionThermo, class ThermoType>
@@ -114,7 +114,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::RR
     const label i
 )
 {
-    return BasicChemistryModel<ReactionThermo>::RR_[i];
+    return this->RR_[i];
 }
 
 

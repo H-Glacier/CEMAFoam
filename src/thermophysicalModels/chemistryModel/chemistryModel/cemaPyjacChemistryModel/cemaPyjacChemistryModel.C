@@ -65,6 +65,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
             scalar(0)
         )
     ),
+    RR_(this->nSpecie()),
     c_(Y_.size()),
     dcdt_(Y_.size()),
     sp_enthalpy_(Y_.size()),
