@@ -21,4 +21,5 @@ LIB_LIBS = \
     -lreactionThermophysicalModels \
     -lspecie \
     -lchemistryModel \
+    -LpyjacSrc -lpyjac_dummy \
     -lm

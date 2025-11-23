@@ -91,7 +91,7 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
     ),
 
     nSpecie_(Y_.size()),
-    nReaction_(FWD_RATES),  // Use PyJac's forward reaction count from mechanism.h
+    nReaction_(reactions_.size()),  // Get reaction count from OpenFOAM mechanism
     Treact_
     (
         this->template lookupOrDefault<scalar>
@@ -189,11 +189,15 @@ Foam::cemaPyjacChemistryModel<ReactionThermo, ThermoType>::cemaPyjacChemistryMod
 
     Info<< "cemaPyjacChemistryModel: Number of species = " << nSpecie_
         << " (PyJac NSP = " << NSP << ")" << endl;
-    Info<< "cemaPyjacChemistryModel: Number of reactions from PyJac:" << endl
+    Info<< "cemaPyjacChemistryModel: OpenFOAM reactions from file = " 
+        << nReaction_ << endl;
+    Info<< "cemaPyjacChemistryModel: PyJac mechanism parameters:" << endl
         << "  Forward reactions = " << FWD_RATES << endl
         << "  Reversible reactions = " << REV_RATES << endl
         << "  Pressure-dependent reactions = " << PRES_MOD_RATES << endl;
-    Info<< "cemaPyjacChemistryModel: Number of elements = " << nElements_ << endl; 
+    Info<< "cemaPyjacChemistryModel: Number of elements = " << nElements_ << endl;
+    Info<< "Note: PyJac will use its own reaction mechanism (" 
+        << FWD_RATES << " reactions), not OpenFOAM's file" << endl; 
  
     if (this->chemistry_) {
         Info << "\n Evaluating species enthalpy of formation using PyJac\n" << endl;

@@ -1,0 +1,3 @@
+pyjac_dummy.c
+
+LIB = $(FOAM_USER_LIBBIN)/libpyjac
